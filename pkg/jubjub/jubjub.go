@@ -1,9 +1,9 @@
 package jubjub
 
 import (
-	"math/big"
-	"github.com/pkg/errors"
 	"fmt"
+	"github.com/pkg/errors"
+	"math/big"
 )
 
 
@@ -67,8 +67,11 @@ func (point *JubjubPoint) VerifyOnCurve() error {
 	sum := big.NewInt(0)
 	sum.Sub(sum, x2).Add(sum, y2).Sub(sum, big.NewInt(1)).Sub(sum, dTimesX2Y2).Mod(sum, point.curve.BlsR)
 
-	if sum.Uint64() != 0 {
-		return errors.New("not on curve")
+	sumBits := sum.Bits()
+	for i := range sumBits {
+		if sumBits[i] != 0 {
+			return errors.New("not on curve")
+		}
 	}
 	return nil
 }
@@ -78,8 +81,16 @@ func (curve *Jubjub) MulByCofactor(point *JubjubPoint) (*JubjubPoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	if retPoint.x.IsUint64() && retPoint.x.Uint64() == 0 {
-		return nil, fmt.Errorf("point is zero")
+	xBits := retPoint.x.Bits()
+	allZeros := true
+	for i := range xBits {
+		allZeros = allZeros && (xBits[i] == 0)
+		if !allZeros {
+			break
+		}
+	}
+	if allZeros {
+		return nil, errors.New("not on curve")
 	}
 
 	return retPoint, nil
@@ -100,7 +111,11 @@ func (curve *Jubjub) Point(x *big.Int, y *big.Int) (*JubjubPoint, error) {
 	return point, nil
 }
 
-func (curve *Jubjub) GetForY(y *big.Int, negate bool) (*JubjubPoint, error) {
+func (curve *Jubjub) GetForY(y *big.Int, shouldBeOdd bool) (*JubjubPoint, error) {
+	if cmp := y.Cmp(curve.BlsR); cmp == 1 || cmp == 0 {
+		return nil, fmt.Errorf("not in field")
+	}
+	//fmt.Printf("cmp: %d\n", y.Cmp(curve.BlsR))
 	ySqr := big.NewInt(0)
 	ySqr.Set(y)
 	ySqr.Exp(ySqr, big.NewInt(2), curve.BlsR)
@@ -120,9 +135,14 @@ func (curve *Jubjub) GetForY(y *big.Int, negate bool) (*JubjubPoint, error) {
 	rhs.Mul(rhs, dPlus1Inv)
 	rhs.Mod(rhs, curve.BlsR)
 	rhs.ModSqrt(rhs, curve.BlsR)
-	if negate {
-		rhs.Neg(rhs)
-		rhs.Mod(rhs, curve.BlsR)
+	if shouldBeOdd {
+		mod2Big := big.NewInt(0)
+		isOdd := mod2Big.Set(rhs).Mod(mod2Big, big.NewInt(2)).Uint64() == 1
+		if isOdd != shouldBeOdd {
+			rhs.Neg(rhs)
+			rhs.Mod(rhs, curve.BlsR)
+		}
+
 	}
 
 	point := &JubjubPoint{
@@ -201,6 +221,21 @@ func (point *JubjubPoint) Text(base int) string {
 
 func (point *JubjubPoint) Clone() (*JubjubPoint, error) {
 	return point.curve.Point(point.x, point.y)
+}
+
+func (point *JubjubPoint) X() (*big.Int) {
+	return big.NewInt(0).Set(point.x)
+}
+
+func (point *JubjubPoint) Y() (*big.Int) {
+	return big.NewInt(0).Set(point.y)
+}
+
+func (curve *Jubjub) Neg(p *JubjubPoint) (*JubjubPoint, error) {
+	x := p.X()
+	x.Neg(x)
+	x.Mod(x, curve.BlsR)
+	return curve.Point(x, p.Y())
 }
 
 func (curve *Jubjub) ScalarMult(scalar *big.Int, point *JubjubPoint) (*JubjubPoint, error){

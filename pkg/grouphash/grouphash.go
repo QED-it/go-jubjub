@@ -40,7 +40,9 @@ func reverse(numbers []byte) {
 func (hasher *GroupHasher) FindGroupHash(msg []byte) (*jubjub.JubjubPoint, error){
 	for i := uint8(0); i <= 255; i++ {
 		msgWithIndex := append(msg, i)
+		//fmt.Printf("msg: %x\n", msgWithIndex)
 		p, err := hasher.Hash(msgWithIndex)
+		//fmt.Printf("p: %v\n", p)
 		if err == ErrInvalidPoint {
 			continue
 		}
@@ -70,6 +72,7 @@ func (hasher *GroupHasher) Hash(msg []byte) (*jubjub.JubjubPoint, error){
 	y := big.NewInt(0)
 	y.SetBytes(blakeHashBytes)
 	highestBit := y.Bit(255)
+	fmt.Printf("highest bit: %d\n", highestBit)
 	y.SetBit(y, 255, 0)
 
 	p, err := hasher.curve.GetForY(y, highestBit == 1)
