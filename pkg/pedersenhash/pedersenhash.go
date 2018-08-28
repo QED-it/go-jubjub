@@ -3,7 +3,7 @@ package pedersenhash
 import (
 	"math/big"
 	"github.com/QED-it/go-jubjub/pkg/jubjub"
-	)
+)
 
 func divCeil(x,y int) int {
 	return (x+y-1)/y

@@ -3,6 +3,7 @@ package jubjub
 import (
 	"math/big"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 
@@ -14,6 +15,8 @@ type Jubjub struct {
 	JubjubS *big.Int
 
 	D *big.Int
+
+	Cofactor *big.Int
 }
 
 type JubjubPoint struct {
@@ -40,6 +43,7 @@ func NewJubjub() *Jubjub {
 		BlsR:blsR,
 		JubjubS:jubjubS,
 		D: d,
+		Cofactor: big.NewInt(8),
 	}
 	return jubjub
 }
@@ -63,16 +67,67 @@ func (point *JubjubPoint) VerifyOnCurve() error {
 	sum := big.NewInt(0)
 	sum.Sub(sum, x2).Add(sum, y2).Sub(sum, big.NewInt(1)).Sub(sum, dTimesX2Y2).Mod(sum, point.curve.BlsR)
 
-	if sum.IsUint64() && sum.Uint64() != 0 {
+	if sum.Uint64() != 0 {
 		return errors.New("not on curve")
 	}
 	return nil
+}
+
+func (curve *Jubjub) MulByCofactor(point *JubjubPoint) (*JubjubPoint, error) {
+	retPoint, err := point.curve.ScalarMult(point.curve.Cofactor, point)
+	if err != nil {
+		return nil, err
+	}
+	if retPoint.x.IsUint64() && retPoint.x.Uint64() == 0 {
+		return nil, fmt.Errorf("point is zero")
+	}
+
+	return retPoint, nil
 }
 
 func (curve *Jubjub) Point(x *big.Int, y *big.Int) (*JubjubPoint, error) {
 	point := &JubjubPoint{
 		curve: curve,
 		x:x,
+		y:y,
+	}
+
+	err := point.VerifyOnCurve()
+	if err != nil {
+		return nil, err
+	}
+
+	return point, nil
+}
+
+func (curve *Jubjub) GetForY(y *big.Int, negate bool) (*JubjubPoint, error) {
+	ySqr := big.NewInt(0)
+	ySqr.Set(y)
+	ySqr.Exp(ySqr, big.NewInt(2), curve.BlsR)
+
+	dPlus1Inv := big.NewInt(0)
+	dPlus1Inv.Set(curve.D)
+	dPlus1Inv.Mul(dPlus1Inv, ySqr)
+	dPlus1Inv.Add(dPlus1Inv, big.NewInt(1))
+	dPlus1Inv.ModInverse(dPlus1Inv, curve.BlsR)
+
+	ySqrMinus1 := big.NewInt(0)
+	ySqrMinus1.Set(ySqr)
+	ySqrMinus1.Sub(ySqrMinus1, big.NewInt(1))
+
+	rhs := big.NewInt(0)
+	rhs.Set(ySqrMinus1)
+	rhs.Mul(rhs, dPlus1Inv)
+	rhs.Mod(rhs, curve.BlsR)
+	rhs.ModSqrt(rhs, curve.BlsR)
+	if negate {
+		rhs.Neg(rhs)
+		rhs.Mod(rhs, curve.BlsR)
+	}
+
+	point := &JubjubPoint{
+		curve: curve,
+		x:rhs,
 		y:y,
 	}
 
@@ -138,6 +193,10 @@ func (curve *Jubjub) Add(p1 *JubjubPoint, p2 *JubjubPoint) (*JubjubPoint, error)
 
 func (point *JubjubPoint) String() string {
 	return "(" + point.x.Text(16) + ", " + point.y.Text(16) + ")"
+}
+
+func (point *JubjubPoint) Text(base int) string {
+	return "(" + point.x.Text(base) + ", " + point.y.Text(base) + ")"
 }
 
 func (point *JubjubPoint) Clone() (*JubjubPoint, error) {
