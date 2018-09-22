@@ -2,7 +2,6 @@ package pedersenhash
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/QED-it/go-jubjub/pkg/grouphash"
 	"github.com/QED-it/go-jubjub/pkg/jubjub"
 	"math/big"
@@ -40,7 +39,7 @@ func NewPedersenHasher() (*PedersenHasher, error) {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("generator: %v\n", p)
+		//fmt.Printf("generator: %v\n", p)
 		generators = append(generators, p)
 	}
 
@@ -51,8 +50,8 @@ func NewPedersenHasher() (*PedersenHasher, error) {
 	}, nil
 }
 
-func (hasher *PedersenHasher) PedersenHashForBits(personaliation []bool, bitsToHash []bool) (*jubjub.JubjubPoint, error){
-	bits := append(personaliation, bitsToHash...)
+func (hasher *PedersenHasher) PedersenHashForBits(personalization []bool, bitsToHash []bool) (*jubjub.JubjubPoint, error){
+	bits := append(personalization, bitsToHash...)
 	sum, err := hasher.curve.Point(big.NewInt(0), big.NewInt(1))
 	if err != nil {
 		return nil, err

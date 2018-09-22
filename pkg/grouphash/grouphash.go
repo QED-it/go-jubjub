@@ -72,7 +72,7 @@ func (hasher *GroupHasher) Hash(msg []byte) (*jubjub.JubjubPoint, error){
 	y := big.NewInt(0)
 	y.SetBytes(blakeHashBytes)
 	highestBit := y.Bit(255)
-	fmt.Printf("highest bit: %d\n", highestBit)
+	//fmt.Printf("highest bit: %d\n", highestBit)
 	y.SetBit(y, 255, 0)
 
 	p, err := hasher.curve.GetForY(y, highestBit == 1)
